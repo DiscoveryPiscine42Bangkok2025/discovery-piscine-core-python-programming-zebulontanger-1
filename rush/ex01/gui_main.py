@@ -205,15 +205,29 @@ def draw_board(selected_sq, valid_moves):
 def bot_move():
     moves = get_all_valid_moves('white')
     if not moves: return False
-    best_score, best_move = -99999, random.choice(moves)
-    for m in moves:
-        orig, dest = board[m[0]][m[1]], board[m[2]][m[3]]
-        board[m[2]][m[3]], board[m[0]][m[1]] = orig, '.'
-        score = sum(PIECE_VALUES.get(board[r][c], 0) for r in range(8) for c in range(8))
-        score += learned_values.get(get_state_key(), 0)
-        if score > best_score:
-            best_score, best_move = score, m
-        board[m[0]][m[1]], board[m[2]][m[3]] = orig, dest
+    
+    # --- EXPLORATION GUARANTEE ---
+    # epsilon = 0.2 means 20% of the time, the bot picks a COMPLETELY random move
+    # this ensures it tries e4, d4, c4, etc., even if it doesn't "know" them yet.
+    epsilon = 0.2 
+    
+    if random.random() < epsilon:
+        best_move = random.choice(moves)
+    else:
+        # Standard "Best Move" logic using the brain
+        best_score, best_move = -99999, random.choice(moves)
+        for m in moves:
+            orig, dest = board[m[0]][m[1]], board[m[2]][m[3]]
+            board[m[2]][m[3]], board[m[0]][m[1]] = orig, '.'
+            
+            # Combine material value + brain experience
+            score = sum(PIECE_VALUES.get(board[r][c], 0) for r in range(8) for c in range(8))
+            score += learned_values.get(get_state_key(), 0)
+            
+            if score > best_score:
+                best_score, best_move = score, m
+            board[m[0]][m[1]], board[m[2]][m[3]] = orig, dest
+            
     execute_move(*best_move)
     return True
 
