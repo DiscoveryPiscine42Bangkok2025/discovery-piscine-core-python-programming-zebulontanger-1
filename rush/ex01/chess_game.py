@@ -153,6 +153,8 @@ def check_castle(start_row, start_col, end_row, end_col):
 
     return True
 
+# def check_enpassant():
+
 def valid_move(start_row, start_column, end_row, end_column):
     if not (0 <= start_row < board_size and 0 <= start_column < board_size and 
             0 <= end_row < board_size and 0 <= end_column < board_size):
