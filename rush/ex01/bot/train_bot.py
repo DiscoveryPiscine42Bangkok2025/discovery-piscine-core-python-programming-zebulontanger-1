@@ -2,7 +2,7 @@ import chess_game
 import random
 
 def train(num_games=2500):
-    print("--- Starting Balanced Bot Training ---")
+    print(f"--- Starting Hybrid Training: {num_games} Games ---")
     chess_game.load_knowledge()
     
     for i in range(num_games):
@@ -19,34 +19,38 @@ def train(num_games=2500):
         chess_game.move_history = []
         chess_game.moved_pieces = set()
         
-        # --- ASSIGN ROLES FOR THIS GAME ---
-        # 50% chance the Bot is White, 50% chance Bot is Black
+        # --- DETERMINE MODE FOR THIS GAME ---
+        # 70% Balanced (Random Opponent), 30% Self-Play (Bot vs Bot)
+        is_self_play = random.random() < 0.3
         bot_is_white = random.choice([True, False])
         
         for move_count in range(200):
             moves = chess_game.get_all_valid_moves(chess_game.current_turn)
             if not moves:
-                # Game end logic
-                res = 0.5 # Draw
-                if chess_game.in_check('white'): res = 0 # Black wins
-                elif chess_game.in_check('black'): res = 1 # White wins
+                res = 0.5
+                if chess_game.in_check('white'): res = 0
+                elif chess_game.in_check('black'): res = 1
                 chess_game.update_learning(game_history, res)
                 break
             
             # --- MOVE SELECTION ---
-            # Check if it is currently the Bot's turn to be "Smart"
-            is_bot_turn = (chess_game.current_turn == 'white' and bot_is_white) or \
-                          (chess_game.current_turn == 'black' and not bot_is_white)
+            is_bot_acting = False
+            if is_self_play:
+                is_bot_acting = True # Both sides are smart
+            else:
+                # Only one side is smart
+                is_bot_acting = (chess_game.current_turn == 'white' and bot_is_white) or \
+                                (chess_game.current_turn == 'black' and not bot_is_white)
 
-            if is_bot_turn:
-                # Bot uses learning + Minimax to pick the best move
-                # 30% exploration within the bot's turn to discover new variations
-                if random.random() < 0.3:
+            if is_bot_acting:
+                # Use learning + Minimax
+                # Increased exploration to 0.4 to discover more of the 60k+ new states
+                if random.random() < 0.4:
                     move = random.choice(moves)
                 else:
                     _, move = chess_game.minimax(1, -1000, 1000, chess_game.current_turn == 'black')
             else:
-                # Opponent turn: plays a purely random move to challenge the bot
+                # Random opponent logic
                 move = random.choice(moves)
 
             if move:
@@ -56,10 +60,16 @@ def train(num_games=2500):
             else:
                 break
 
-        # Progress Updates and Saving
-        if (i + 1) % 10 == 0:
-            print(f" > Games: {i + 1}/{num_games} | Brain size: {len(chess_game.learned_values)}")
+        # Progress Updates
+        if (i + 1) % 50 == 0:
+            mode_text = "Self-Play" if is_self_play else "Balanced"
+            print(f"Game {i+1}/{num_games} completed ({mode_text}). Positions known: {len(chess_game.learned_values)}")
             chess_game.save_knowledge()
 
+    # Final Save
+    chess_game.save_knowledge()
+    print(f"Training Complete! Total unique positions: {len(chess_game.learned_values)}")
+
 if __name__ == "__main__":
-    train()
+    # You can change this number to run smaller or larger batches
+    train(2500)
