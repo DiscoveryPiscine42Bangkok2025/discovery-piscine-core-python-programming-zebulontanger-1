@@ -13,16 +13,11 @@ def checkmate(board: str):
     
     king_pos = None
     king_count = 0
-    allowed_chars = {'K', 'P', 'B', 'Q', 'R', '.'}
 
     for r in range(grid_len):
         for c in range(grid_len):
             char = grid[r][c]
             
-            if char not in allowed_chars:
-                print('error')
-                return
-                
             if char == 'K':
                 king_pos = (r, c)
                 king_count += 1
@@ -54,7 +49,7 @@ def checkmate(board: str):
             r += dr
             c += dc
 
-    pawn_attackers = [(-1, -1), (-1, 1)] 
+    pawn_attackers = [(1, 1), (1, -1)] 
     for dr, dc in pawn_attackers:
         r, c = kx + dr, ky + dc
         if 0 <= r < grid_len and 0 <= c < grid_len:
