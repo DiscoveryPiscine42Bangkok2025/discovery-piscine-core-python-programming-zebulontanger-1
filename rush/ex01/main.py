@@ -41,29 +41,31 @@ def main():
             sr, sc = start_coords
             er, ec = end_coords
 
+        
             if chess_game.valid_move(sr, sc, er, ec):
                 chess_game.board[er][ec] = chess_game.board[sr][sc]
                 chess_game.board[sr][sc] = '.'
 
                 if chess_game.board[er][ec].lower() == 'p' and (er == 0 or er == chess_game.board_size - 1):
                     choice = input("Promote to a rook (r) or Bishop (b)? ").lower()
-                    if choice not in ['r', 'b']: choice = 'r'
-                    chess_game.board[er][ec] = choice if chess_game.current_turn == 'white' else choice.upper()
+                    if choice not in ['r', 'b']:
+                        choice = 'r'
+        
+                chess_game.board[er][ec] = choice if chess_game.current_turn == 'white' else choice.upper()
+
+                chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
+
+                chess_game.record_position()
+
+                if chess_game.check_repeat():
+                    chess_game.show_board()
+                    print("Draw: Threefold Repetition")
+                    break
 
                 if chess_game.check_stalemate():
                     chess_game.show_board()
                     print("Draw: Stalemate.")
                     break
-
-                chess_game.record_position()
-
-                if chess_game.check_repeat():
-                    print("Draw: Threefold Repetition")
-
-                # if chess_game.check_for_repeating():
-                #     chess_game.show_board()
-                #     print("Game Over: Repetitive Moves")
-                #     break
 
                 chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
 
