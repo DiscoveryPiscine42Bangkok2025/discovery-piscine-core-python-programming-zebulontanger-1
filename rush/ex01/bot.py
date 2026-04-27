@@ -52,17 +52,23 @@ def evaluate_board(curr_board):
 def get_all_moves(curr_board, turn):
     moves = []
     is_white = (turn == 'white')
-    for r in range(8):
-        for c in range(8):
-            p = curr_board[r][c]
-            if p == '.' or (is_white and p not in PIECE_VALUES) or (not is_white and p in PIECE_VALUES):
-                continue
+    # Use your existing move generation logic here
     return moves
 
-def select_best_move(curr_board, turn, depth=1):
+def select_best_move(curr_board, turn, move_count=0):
     moves = get_all_moves(curr_board, turn)
     if not moves: return None
-    
+
+    if move_count == 0:
+        if turn == 'white':
+            openings = [(6, 4, 4, 4), (6, 3, 4, 3), (6, 2, 4, 2)]
+        else:
+            openings = [(1, 4, 3, 4), (1, 3, 3, 3), (1, 2, 3, 2)]
+        
+        valid_openings = [m for m in moves if m in openings]
+        if valid_openings:
+            return random.choice(valid_openings)
+
     scored_moves = []
     for m in moves:
         sr, sc, er, ec = m
@@ -83,8 +89,8 @@ def run_training_session(games=10):
         board = get_initial_board()
         history = []
         turn = 'white'
-        for _ in range(100):
-            move = select_best_move(board, turn)
+        for m_count in range(100):
+            move = select_best_move(board, turn, m_count)
             if not move: break
             board[move[2]][move[3]], board[move[0]][move[1]] = board[move[0]][move[1]], '.'
             history.append(get_state_key(board))
@@ -103,6 +109,7 @@ def play_game():
     load_brain()
     
     running = True
+    m_count = 0
     while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -121,4 +128,5 @@ def play_game():
     pygame.quit()
 
 if __name__ == "__main__":
-    play_game()
+    run_training_session(1000)
+    # play_game()
