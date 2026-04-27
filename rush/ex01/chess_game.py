@@ -11,7 +11,7 @@ Rules   1. How Pieces Move
             Pawn: moves forward, one square at a time.
           
         2. Pawn Promoting
-            Once your pawn reaches the other the side of the board,
+            Once your pawn reaches the other side of the board,
             you may promote to either a Rook or a Bishop
             (A queen is way too strong)
         
@@ -42,9 +42,14 @@ board = [
 current_turn = 'white'
 position_history = {}
 
+has_moved = {
+    'white_king': False, 'white_rook_a': False, 'white_rook_h': False,
+    'black_king': False, 'black_rook_a': False, 'black_rook_h': False
+}
+
 def show_board():
     print("\n   a b c d e f g h")
-    print("  ----------------")
+    print("   ----------------")
     for i in range(board_size):
         row_string = ""
         for j in range(board_size):
@@ -97,6 +102,57 @@ def in_check(color):
         return False
     return find_check(position[0], position[1], color)
 
+def check_castle(start_row, start_col, end_row, end_col):
+    piece = board[start_row][start_col]
+    if piece.lower() != 'k':
+        return False
+    
+    if abs(end_col - start_col) != 2 or start_row != end_row:
+        return False
+
+    if in_check(current_turn):
+        return False
+
+    is_white = current_turn == 'white'
+    row = 7 if is_white else 0
+    king_moved = has_moved['white_king'] if is_white else has_moved['black_king']
+    
+    if king_moved or start_row != row or start_col != 4:
+        return False
+
+    if end_col == 6:
+        rook_moved = has_moved['white_rook_h'] if is_white else has_moved['black_rook_h']
+        rook_piece = 'r' if is_white else 'R'
+        if rook_moved or board[row][7] != rook_piece:
+            return False
+        path = [(row, 5), (row, 6)]
+    elif end_col == 2:
+        rook_moved = has_moved['white_rook_a'] if is_white else has_moved['black_rook_a']
+        rook_piece = 'r' if is_white else 'R'
+        if rook_moved or board[row][0] != rook_piece:
+            return False
+        path = [(row, 1), (row, 2), (row, 3)]
+    else:
+        return False
+
+    for r, c in path:
+        if board[r][c] != '.':
+            return False
+    
+    test_path = [(row, 5), (row, 6)] if end_col == 6 else [(row, 3), (row, 2)]
+    for r, c in test_path:
+        original_king_pos = board[row][4]
+        board[r][c] = original_king_pos
+        board[row][4] = '.'
+        if find_check(r, c, current_turn):
+            board[row][4] = original_king_pos
+            board[r][c] = '.'
+            return False
+        board[row][4] = original_king_pos
+        board[r][c] = '.'
+
+    return True
+
 def valid_move(start_row, start_column, end_row, end_column):
     if not (0 <= start_row < board_size and 0 <= start_column < board_size and 
             0 <= end_row < board_size and 0 <= end_column < board_size):
@@ -111,6 +167,10 @@ def valid_move(start_row, start_column, end_row, end_column):
         return False
     if current_turn == 'black' and not piece.isupper():
         return False
+    
+    if piece.lower() == 'k' and abs(end_column - start_column) == 2:
+        return check_castle(start_row, start_column, end_row, end_column)
+
     if target != '.' and target.islower() == piece.islower():
         return False
     
@@ -131,7 +191,6 @@ def valid_move(start_row, start_column, end_row, end_column):
         
         if delta_column == 0 and target == '.' and delta_row == direction:
             pass
-        
         elif delta_column == 0 and target == '.' and delta_row == 2 * direction:
             if start_row != start_row_pawn:
                 return False
@@ -139,10 +198,8 @@ def valid_move(start_row, start_column, end_row, end_column):
             if board[passing_row][start_column] != '.':
                 return False
             pass
-            
         elif abs(delta_column) == 1 and delta_row == direction and target != '.':
             pass
-        
         else:
             return False
         
