@@ -3,7 +3,7 @@ import pickle
 
 # --- SETTINGS ---
 LEARNING_RATE = 0.1
-DISCOUNT_FACTOR = 0.95
+DISCOUNT_FACTOR = 0.95  # How much the bot values future rewards
 WHITE_PIECES = {'♙', '♖', '♘', '♗', '♕', '♔'}
 BLACK_PIECES = {'♟', '♜', '♞', '♝', '♛', '♚'}
 PIECE_VALUES = {
@@ -52,6 +52,7 @@ def get_all_moves(board, turn):
             if p == '.' or (is_white and p not in WHITE_PIECES) or (not is_white and p not in BLACK_PIECES):
                 continue
             
+            # Movement logic for all pieces
             dirs = []
             if p in {'♖', '♜', '♕', '♛'}: dirs += [(0,1),(0,-1),(1,0),(-1,0)]
             if p in {'♗', '♝', '♕', '♛'}: dirs += [(1,1),(1,-1),(-1,1),(-1,-1)]
@@ -96,9 +97,11 @@ def select_move(board, turn, epsilon):
     moves = get_all_moves(board, turn)
     if not moves: return None
 
+    # EXPLORATION: Play randomly based on epsilon
     if random.random() < epsilon:
         return random.choice(moves)
 
+    # EXPLOITATION: Stick to what was learned
     scored_moves = []
     for m in moves:
         sr, sc, er, ec = m
@@ -113,6 +116,7 @@ def select_move(board, turn, epsilon):
 
 def run_self_play_training(games=100):
     load_brain()
+    # Epsilon starts high (random) and decays as the bot learns
     epsilon = 0.5 
 
     for g in range(games):
@@ -125,6 +129,7 @@ def run_self_play_training(games=100):
         for m_count in range(150):
             move = select_move(board, turn, epsilon)
             if not move: 
+                # DRAW PUNISHMENT: If the game ends in a stalemate/no moves
                 result_score = -5 
                 game_over = True
                 break
@@ -134,21 +139,24 @@ def run_self_play_training(games=100):
             state_key = get_state_key(board)
             history.append(state_key)
 
+            # Check if King was captured (Simple win condition)
             flat_board = "".join(["".join(row) for row in board])
             if '♔' not in flat_board:
-                result_score = -50 
+                result_score = -50 # Black wins
                 game_over = True
                 break
             if '♚' not in flat_board:
-                result_score = 50
+                result_score = 50 # White wins
                 game_over = True
                 break
 
             turn = 'black' if turn == 'white' else 'white'
 
+        # If game went to 150 moves without a winner, punish as a draw
         if not game_over:
             result_score = -10
 
+        # BACKPROPAGATION: Learn from the result
         for i, state in enumerate(reversed(history)):
             reward = result_score * (DISCOUNT_FACTOR ** i)
             old_val = learned_values.get(state, 0)
@@ -157,9 +165,9 @@ def run_self_play_training(games=100):
         if (g + 1) % 50 == 0:
             print(f"Game {g+1} | Positions in Brain: {len(learned_values)}")
             save_brain()
-            epsilon = max(0.1, epsilon * 0.99)
+            epsilon = max(0.1, epsilon * 0.99) # Become less random over time
 
     save_brain()
 
 if __name__ == "__main__":
-    run_self_play_training(1000)
+    run_self_play_training(2000)
