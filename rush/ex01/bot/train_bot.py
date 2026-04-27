@@ -1,73 +1,101 @@
-import chess_game
 import random
+import pickle
 
-# welcome to my unfinished project
-# what i'm trying to make here is a reinforced learning chess bot :)
+total_games = 1000
+save_interval = 10
 
-def train(num_games=2500):
-    print(f"--- Starting Hybrid Training: {num_games} Games ---")
-    chess_game.load_knowledge()
-    
-    for i in range(num_games):
-        game_history = []
-        
-        chess_game.board = [
-            ['♜','♞','♝','♛','♚','♝','♞','♜'], ['♟','♟','♟','♟','♟','♟','♟','♟'],
-            ['.','.','.','.','.','.','.','.'], ['.','.','.','.','.','.','.','.'],
-            ['.','.','.','.','.','.','.','.'], ['.','.','.','.','.','.','.','.'],
-            ['♙','♙','♙','♙','♙','♙','♙','♙'], ['♖','♘','♗','♕','♔','♗','♘','♖']
-        ]
-        chess_game.current_turn = 'white'
-        chess_game.move_history = []
-        chess_game.moved_pieces = set()
-        
-        # 70% Balanced (Random Opponent), 30% Self-Play (Bot vs Bot)
-        is_self_play = random.random() < 0.3
-        bot_is_white = random.choice([True, False])
-        
-        for move_count in range(200):
-            moves = chess_game.get_all_valid_moves(chess_game.current_turn)
-            if not moves:
-                res = 0.5
-                if chess_game.in_check('white'): res = 0
-                elif chess_game.in_check('black'): res = 1
-                chess_game.update_learning(game_history, res)
-                break
+PIECE_VALUES = {
+    '♙': 1, '♘': 3, '♗': 3, '♖': 5, '♕': 9, '♔': 100,
+    '♟': -1, '♞': -3, '♝': -3, '♜': -5, '♛': -9, '♚': -100
+}
+WHITE_PIECES = {'♙', '♖', '♘', '♗', '♕', '♔'}
+BLACK_PIECES = {'♟', '♜', '♞', '♝', '♛', '♚'}
+
+try:
+    with open("bot_brain.pkl", 'rb') as f:
+        learned_values = pickle.load(f)
+except:
+    learned_values = {}
+
+print("Brain loaded. Positions known:", len(learned_values))
+
+for game_num in range(total_games):
+    board = [
+        ['♜','♞','♝','♛','♚','♝','♞','♜'],
+        ['♟','♟','♟','♟','♟','♟','♟','♟'],
+        ['.','.','.','.','.','.','.','.'],
+        ['.','.','.','.','.','.','.','.'],
+        ['.','.','.','.','.','.','.','.'],
+        ['.','.','.','.','.','.','.','.'],
+        ['♙','♙','♙','♙','♙','♙','♙','♙'],
+        ['♖','♘','♗','♕','♔','♗','♘','♖']
+    ]
+    current_turn = 'white'
+    bot_is_white = random.choice([True, False])
+    game_history = []
+
+    for move_count in range(150):
+        all_moves = []
+        for r in range(8):
+            for c in range(8):
+                piece = board[r][c]
+                if (current_turn == 'white' and piece in WHITE_PIECES) or \
+                   (current_turn == 'black' and piece in BLACK_PIECES):
+                    
+                    for dr, dc in [(1,0),(-1,0),(0,1),(0,-1),(1,1),(-1,-1),(1,-1),(-1,1)]:
+                        nr, nc = r + dr, c + dc
+                        if 0 <= nr < 8 and 0 <= nc < 8:
+                            target = board[nr][nc]
+                            if target == '.' or \
+                               (current_turn == 'white' and target in BLACK_PIECES) or \
+                               (current_turn == 'black' and target in WHITE_PIECES):
+                                all_moves.append((r, c, nr, nc))
+
+        if not all_moves:
+            break
+
+        is_bot_acting = (current_turn == 'white' and bot_is_white) or \
+                        (current_turn == 'black' and not bot_is_white)
+
+        if is_bot_acting and random.random() > 0.3:
+            best_move = all_moves[0]
+            best_score = -9999 if current_turn == 'white' else 9999
             
-            is_bot_acting = False
-            if is_self_play:
-                is_bot_acting = True # Both sides are smart
-            else:
-                is_bot_acting = (chess_game.current_turn == 'white' and bot_is_white) or \
-                                (chess_game.current_turn == 'black' and not bot_is_white)
+            for m in all_moves:
+                orig_p, dest_p = board[m[0]][m[1]], board[m[2]][m[3]]
+                board[m[2]][m[3]], board[m[0]][m[1]] = orig_p, '.'
+                
+                current_score = sum(PIECE_VALUES.get(board[row][col], 0) for row in range(8) for col in range(8))
+                state_key = "".join("".join(row) for row in board)
+                current_score += learned_values.get(state_key, 0)
 
-            if is_bot_acting
-                # exploration rate: 0.4
-                if random.random() < 0.4:
-                    move = random.choice(moves)
-                else:
-                    _, move = chess_game.minimax(1, -1000, 1000, chess_game.current_turn == 'black')
-            else:
-                # Random opponent logic
-                move = random.choice(moves)
+                if (current_turn == 'white' and current_score > best_score) or \
+                   (current_turn == 'black' and current_score < best_score):
+                    best_score, best_move = current_score, m
+                
+                board[m[0]][m[1]], board[m[2]][m[3]] = orig_p, dest_p
+            move = best_move
+        else:
+            move = random.choice(all_moves)
 
-            if move:
-                chess_game.execute_move(move[0], move[1], move[2], move[3])
-                game_history.append(chess_game.get_state_key())
-                chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
-            else:
-                break
+        sr, sc, er, ec = move
+        board[er][ec], board[sr][sc] = board[sr][sc], '.'
+        
+        game_history.append("".join("".join(row) for row in board))
+        
+        current_turn = 'black' if current_turn == 'white' else 'white'
 
-        # progress updating
-        if (i + 1) % 50 == 0:
-            mode_text = "Self-Play" if is_self_play else "Balanced"
-            print(f"Game {i+1}/{num_games} completed ({mode_text}). Positions known: {len(chess_game.learned_values)}")
-            chess_game.save_knowledge()
+    final_eval = sum(PIECE_VALUES.get(board[row][col], 0) for row in range(8) for col in range(8))
+    for state in game_history:
+        if state in learned_values:
+            learned_values[state] = (learned_values[state] + final_eval) / 2
+        else:
+            learned_values[state] = final_eval
 
-    # Final Save
-    chess_game.save_knowledge()
-    print(f"Training Complete! Total unique positions: {len(chess_game.learned_values)}")
+    if (game_num + 1) % save_interval == 0:
+        print(f"Game {game_num + 1}/{total_games} finished. Positions known: {len(learned_values)}")
 
-if __name__ == "__main__":
-    # amount of times to run
-    train(2500)
+with open("bot_brain.pkl", 'wb') as f:
+    pickle.dump(learned_values, f)
+
+print("Training session finished. Brain saved.")
