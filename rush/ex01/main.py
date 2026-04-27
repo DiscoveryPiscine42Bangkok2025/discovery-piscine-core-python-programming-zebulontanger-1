@@ -40,16 +40,43 @@ def main():
             er, ec = end_coords
 
             if chess_game.valid_move(sr, sc, er, ec):
-                chess_game.board[er][ec] = chess_game.board[sr][sc]
+                piece = chess_game.board[sr][sc]
+                target = chess_game.board[er][ec]
+
+                if piece.lower() == 'k' and abs(ec - sc) == 2:
+                    if ec == 6: #
+                        chess_game.board[sr][5] = chess_game.board[sr][7]
+                        chess_game.board[sr][7] = '.'
+                    elif ec == 2:
+                        chess_game.board[sr][3] = chess_game.board[sr][0]
+                        chess_game.board[sr][0] = '.'
+
+                if piece == 'k': chess_game.has_moved['white_king'] = True
+                elif piece == 'K': chess_game.has_moved['black_king'] = True
+                elif piece == 'r':
+                    if sr == 7 and sc == 0: chess_game.has_moved['white_rook_a'] = True
+                    if sr == 7 and sc == 7: chess_game.has_moved['white_rook_h'] = True
+                elif piece == 'R':
+                    if sr == 0 and sc == 0: chess_game.has_moved['black_rook_a'] = True
+                    if sr == 0 and sc == 7: chess_game.has_moved['black_rook_h'] = True
+                
+                if target == 'r':
+                    if er == 7 and ec == 0: chess_game.has_moved['white_rook_a'] = True
+                    if er == 7 and ec == 7: chess_game.has_moved['white_rook_h'] = True
+                elif target == 'R':
+                    if er == 0 and ec == 0: chess_game.has_moved['black_rook_a'] = True
+                    if er == 0 and ec == 7: chess_game.has_moved['black_rook_h'] = True
+
+                chess_game.board[er][ec] = piece
                 chess_game.board[sr][sc] = '.'
 
                 if chess_game.board[er][ec].lower() == 'p' and (er == 0 or er == 7):
-                    choice = input("Promote to a queen (q), rook (r), knight (n), or bishop (b)? ").lower()
-                    if choice not in ['q', 'r', 'n', 'b']:
-                        choice = 'q'
-                    
-                    chess_game.board[er][ec] = choice.upper() if chess_game.current_turn == 'white' else choice.lower()
+                    choice = input("Promote to a rook (r) or bishop (b)? ").lower()
+                    if choice not in ['r', 'b']:
+                        choice = 'r'
+                    chess_game.board[er][ec] = choice.lower() if chess_game.current_turn == 'white' else choice.upper()
 
+                chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
                 chess_game.record_position()
 
                 if chess_game.check_repeat():
@@ -61,8 +88,6 @@ def main():
                     chess_game.show_board()
                     print("Draw: Stalemate.")
                     break
-                
-                chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
             else:
                 print("\n[!] Invalid Move")
         except ValueError:
