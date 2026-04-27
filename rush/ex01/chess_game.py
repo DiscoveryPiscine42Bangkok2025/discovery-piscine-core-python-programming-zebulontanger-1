@@ -169,20 +169,29 @@ def valid_move(start_row, start_column, end_row, end_column):
     return safe
 
 def check_stalemate():
-    pieces = []
-    for x in range(board_size):
-        for y in range(board_size):
-            if board[x][y] != '.':
-                pieces.append(board[x][y])
+    if in_check(current_turn):
+        return False
     
-    if len(pieces) <= 2:
-        return True
+    for start_row in range(board_size):
+        for start_column in range(board_size):
+                piece = board[start_row][start_column]
+
+                if piece == '.':
+                    continue
+
+                if current_turn == 'white' and not piece.islower():
+                    continue
+                if current_turn == 'black' and not piece.isupper():
+                    continue
     
-    if len(pieces) == 3:
-        has_bishop = False
-        for p in pieces:
-            if p.lower() == 'b':
-                has_bishop = True
-        if has_bishop:
-            return True
-    return False
+                for end_row in range(board_size):
+                    for end_column in range(board_size):
+                        if valid_move(start_row, start_column, end_row, end_column):
+                            return False
+    
+    return True
+
+def check_repeat():
+
+# def check_for_repeating():
+    
