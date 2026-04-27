@@ -40,6 +40,7 @@ board = [
     ['r','.','b','q','k','b','.','r']
 ]
 current_turn = 'white'
+position_history = {}
 
 def show_board():
     print("\n   a b c d e f g h")
@@ -191,7 +192,14 @@ def check_stalemate():
     
     return True
 
-def check_repeat():
+def get_position():
+    board_state = tuple(tuple(row) for row in board)
+    return(board_state, current_turn)
 
-# def check_for_repeating():
-    
+def record_position():
+    key = get_position()
+    position_history[key] = position_history.get(key, 0) + 1
+
+def check_repeat():
+    key = get_position()
+    return position_history.get(key, 0) >= 3
