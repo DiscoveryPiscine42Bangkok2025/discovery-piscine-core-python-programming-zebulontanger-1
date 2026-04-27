@@ -47,25 +47,25 @@ def update_learning(history, result):
 def execute_move(sr, sc, er, ec, promotion_piece=None):
     piece = board[sr][sc]
     captured = board[er][ec]
-    
-    # 1. Castling Logic
+
+    # castling
     if piece in ('♔', '♚') and abs(sc - ec) == 2:
         rook_sc = 7 if ec == 6 else 0
         rook_ec = 5 if ec == 6 else 3
         board[sr][rook_ec] = board[sr][rook_sc]
         board[sr][rook_sc] = '.'
 
-    # 2. En Passant Logic
+    # en passant
     if piece in ('♙', '♟') and sc != ec and board[er][ec] == '.':
-        board[sr][ec] = '.' # Remove captured pawn
+        board[sr][ec] = '.' # remove taken pawn
 
-    # 3. Move Piece
+    # move piece
     move_history.append((sr, sc, er, ec, piece, captured))
     board[er][ec] = piece
     board[sr][sc] = '.'
     moved_pieces.add((sr, sc))
 
-    # 4. Promotion
+    # promotion
     if piece == '♙' and er == 0: board[er][ec] = promotion_piece or '♕'
     if piece == '♟' and er == 7: board[er][ec] = promotion_piece or '♛'
 
