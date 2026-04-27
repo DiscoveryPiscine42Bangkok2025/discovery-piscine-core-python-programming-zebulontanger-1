@@ -1,48 +1,54 @@
 #!/usr/bin/env python3
+import time
+
+# --- Global State ---
+player_times = {'white': 600.0, 'black': 600.0}
+last_update_time = None
+current_turn = 'white'
+game_active = True  # Added to control the background timer
 
 def show_rules():
-    print("""Welcome to chess..kind of.
-Due to budget cuts, we couldn't afford the horsies.
+    print("""Welcome to chess...?
 =====================================================
 Rules   1. How Pieces Move
             Rook: moves Vertically and Horizontally
             Bishop: moves Diagonally
+            Knight: moves in an 'L' shape (2x1)
             Queen: moves like a Rook + Bishop
-            Pawn: moves forward, one square at a time.
+            Pawn: moves forward, one square at a time
+            Castling: O-O (Kingside) or O-O-O (Queenside)
           
         2. Pawn Promoting
-            Once your pawn reaches the other side of the board,
-            you may promote to either a Rook or a Bishop
-            (A queen is way too strong)
+            Once your pawn reaches the other side of the board
+            you may promote to a Queen, Rook, Bishop, or Knight
         
         3. Checks
-            Once your king is in check, you cannot move other pieces,
-            unless they block the check itself.
+            Once your king is in check, you cannot move other pieces
+            unless they block the check or move the king
           
-        4. How to Win
-            If you can Checkmate, you win.
-        
-        5. Stalemate
-            If either side has only a king left, or only one bishop,
-            it is an immediate draw.
+        4. Draw Rules
+            - 50 move rule: 50 moves without pawn move/capture
+            - 3 fold repetition
+            - Stalemate
+            - Insufficient Material
 =====================================================""")
-
 
 board_size = 8
 board = [
-    ['R','.','B','Q','K','B','.','R'],
-    ['P','P','P','P','P','P','P','P'],
+    ['♖','♘','♗','♕','♔','♗','♘','♖'], # Black
+    ['♙','♙','♙','♙','♙','♙','♙','♙'],
     ['.','.','.','.','.','.','.','.'],
     ['.','.','.','.','.','.','.','.'],
     ['.','.','.','.','.','.','.','.'],
     ['.','.','.','.','.','.','.','.'],
-    ['p','p','p','p','p','p','p','p'],
-    ['r','.','b','q','k','b','.','r']
+    ['♟','♟','♟','♟','♟','♟','♟','♟'],
+    ['♜','♞','♝','♛','♚','♝','♞','♜']  # White
 ]
+
 current_turn = 'white'
 position_history = {}
-
-has_moved = {
+halfmove_clock = 0 
+moved_pieces = {
     'white_king': False, 'white_rook_a': False, 'white_rook_h': False,
     'black_king': False, 'black_rook_a': False, 'black_rook_h': False
 }
@@ -50,215 +56,211 @@ has_moved = {
 def show_board():
     print("\n   a b c d e f g h")
     print("   ----------------")
-    for i in range(board_size):
-        row_string = ""
-        for j in range(board_size):
-            row_string += board[i][j] + " "
-        print(f"{8 - i}| {row_string.strip()}") 
-    print(f"\nTurn: {current_turn.capitalize()}\n")
 
+    for i in range(board_size):
+        row_string = " ".join(board[i])
+        print(f"{8 - i}| {row_string}") 
+
+    # Removed the line printing the 50-Move Clock
+    print(f"\nTurn: {current_turn.capitalize()}")
+
+    print(f"\nTurn: {current_turn.capitalize()} | 50-Move Clock: {halfmove_clock}/100")
 def get_king_pos(color):
-    target = 'k' if color == 'white' else 'K'
+    target = '♚' if color == 'white' else '♔'
+
     for x in range(board_size):
         for y in range(board_size):
             if board[x][y] == target:
                 return (x, y)
+
     return None
 
 def find_check(x, y, color_of_king):
     directions = [(0,1),(0,-1),(1,0),(-1,0),(1,1),(1,-1),(-1,1),(-1,-1)]
+    knight_jumps = [(2,1),(2,-1),(-2,1),(-2,-1),(1,2),(1,-2),(-1,2),(-1,-2)]
+    is_white = color_of_king == 'white'
+    e_rook, e_bishop, e_queen, e_pawn, e_knight = ('♖','♗','♕','♙','♘') if is_white else ('♜','♝','♛','♟','♞')
 
-    enemy_rook = 'R' if color_of_king == 'white' else 'r'
-    enemy_bishop = 'B' if color_of_king == 'white' else 'b'
-    enemy_queen = 'Q' if color_of_king == 'white' else 'q'
-    enemy_pawn = 'P' if color_of_king == 'white' else 'p'
+    for dx, dy in knight_jumps:
+        nx, ny = x + dx, y + dy
 
+        if 0 <= nx < 8 and 0 <= ny < 8 and board[nx][ny] == e_knight:
+            return True
+        
     for dx, dy in directions:
         i, j = x + dx, y + dy
         step = 1
-
-        while 0 <= i < board_size and 0 <= j < board_size:
+        
+        while 0 <= i < 8 and 0 <= j < 8:
             piece = board[i][j]
 
             if piece != '.':
-                if (dx == 0 or dy == 0) and piece in (enemy_rook, enemy_queen):
+
+                if (dx == 0 or dy == 0) and piece in (e_rook, e_queen):
                     return True
-                if (dx != 0 or dy != 0) and piece in (enemy_bishop, enemy_queen):
-                    return True
-                if step == 1 and (dx != 0 and dy != 0):
-                    pawn_direction = -1 if color_of_king == 'white' else 1
-                    if dx == pawn_direction and piece == enemy_pawn:
-                        return True
                 
+                if (dx != 0 and dy != 0) and piece in (e_bishop, e_queen):
+                    return True
+                
+                if step == 1 and (dx != 0 and dy != 0):
+                    pawn_dir = -1 if is_white else 1
+
+                    if dx == pawn_dir and piece == e_pawn:
+                        return True
                 break
-            i += dx
-            j += dy
-            step += 1
+
+            i += dx; j += dy; step += 1
     return False
 
 def in_check(color):
-    position = get_king_pos(color)
-    if not position:
-        return False
-    return find_check(position[0], position[1], color)
+    pos = get_king_pos(color)
+    return find_check(pos[0], pos[1], color) if pos else False
 
-def check_castle(start_row, start_col, end_row, end_col):
-    piece = board[start_row][start_col]
-    if piece.lower() != 'k':
+def can_castle(side):
+    row = 7 if current_turn == 'white' else 0
+    k_key = f"{current_turn}_king"
+    r_key = f"{current_turn}_rook_h" if side == 'short' else f"{current_turn}_rook_a"
+
+    if moved_pieces[k_key] or moved_pieces[r_key] or in_check(current_turn):
         return False
     
-    if abs(end_col - start_col) != 2 or start_row != end_row:
-        return False
-
-    if in_check(current_turn):
-        return False
-
-    is_white = current_turn == 'white'
-    row = 7 if is_white else 0
-    king_moved = has_moved['white_king'] if is_white else has_moved['black_king']
-    
-    if king_moved or start_row != row or start_col != 4:
-        return False
-
-    if end_col == 6:
-        rook_moved = has_moved['white_rook_h'] if is_white else has_moved['black_rook_h']
-        rook_piece = 'r' if is_white else 'R'
-        if rook_moved or board[row][7] != rook_piece:
+    cols = [5, 6] if side == 'short' else [1, 2, 3]
+    for c in cols:
+        if board[row][c] != '.':
             return False
-        path = [(row, 5), (row, 6)]
-    elif end_col == 2:
-        rook_moved = has_moved['white_rook_a'] if is_white else has_moved['black_rook_a']
-        rook_piece = 'r' if is_white else 'R'
-        if rook_moved or board[row][0] != rook_piece:
+        
+    test_cols = [5, 6] if side == 'short' else [2, 3]
+    for c in test_cols:
+        if find_check(row, c, current_turn):
             return False
-        path = [(row, 1), (row, 2), (row, 3)]
-    else:
-        return False
-
-    for r, c in path:
-        if board[r][c] != '.':
-            return False
-    
-    test_path = [(row, 5), (row, 6)] if end_col == 6 else [(row, 3), (row, 2)]
-    for r, c in test_path:
-        original_king_pos = board[row][4]
-        board[r][c] = original_king_pos
-        board[row][4] = '.'
-        if find_check(r, c, current_turn):
-            board[row][4] = original_king_pos
-            board[r][c] = '.'
-            return False
-        board[row][4] = original_king_pos
-        board[r][c] = '.'
-
     return True
 
-# def check_enpassant():
-
-def valid_move(start_row, start_column, end_row, end_column):
-    if not (0 <= start_row < board_size and 0 <= start_column < board_size and 
-            0 <= end_row < board_size and 0 <= end_column < board_size):
-        return False
-
-    piece = board[start_row][start_column]
-    target = board[end_row][end_column]
-
-    if piece == '.':
-        return False
-    if current_turn == 'white' and not piece.islower():
-        return False
-    if current_turn == 'black' and not piece.isupper():
+def valid_move(sr, sc, er, ec):
+    if not (0 <= sr < 8 and 0 <= sc < 8 and 0 <= er < 8 and 0 <= ec < 8):
         return False
     
-    if piece.lower() == 'k' and abs(end_column - start_column) == 2:
-        return check_castle(start_row, start_column, end_row, end_column)
+    piece, target = board[sr][sc], board[er][ec]
+    white_p, black_p = {'♜','♞','♝','♛','♚','♟'}, {'♖','♘','♗','♕','♔','♙'}
 
-    if target != '.' and target.islower() == piece.islower():
+    if piece == '.' or (current_turn == 'white' and piece not in white_p) or (current_turn == 'black' and piece not in black_p):
         return False
     
-    delta_row, delta_column = end_row - start_row, end_column - start_column
-    piece_type = piece.lower()
+    if target != '.' and ((target in white_p) == (piece in white_p)):
+        return False
+    
+    p_type = 'p' if piece in ('♟','♙') else 'r' if piece in ('♜','♖') else 'n' if piece in ('♞','♘') else 'b' if piece in ('♝','♗') else 'q' if piece in ('♛','♕') else 'k'
+    dr, dc = er - sr, ec - sc
 
-    if piece_type == 'r' and (delta_row != 0 and delta_column != 0):
+    if p_type == 'n':
+        if not ((abs(dr) == 2 and abs(dc) == 1) or (abs(dr) == 1 and abs(dc) == 2)):
+            return False
+    elif p_type == 'r' and (dr != 0 and dc != 0): 
         return False
-    elif piece_type == 'b' and abs(delta_row) != abs(delta_column):
+    elif p_type == 'b' and abs(dr) != abs(dc):
         return False
-    elif piece_type == 'q' and not (delta_row == 0 or delta_column == 0 or abs(delta_row) == abs(delta_column)):
+    elif p_type == 'q' and not (dr == 0 or dc == 0 or abs(dr) == abs(dc)):
         return False
-    elif piece_type == 'k' and (abs(delta_row) > 1 or abs(delta_column) > 1):
+    elif p_type == 'k' and (abs(dr) > 1 or abs(dc) > 1):
         return False
-    elif piece_type == 'p':
-        direction = -1 if current_turn == 'white' else 1
-        start_row_pawn = 6 if current_turn == 'white' else 1
-        
-        if delta_column == 0 and target == '.' and delta_row == direction:
+    elif p_type == 'p':
+        move_dir = -1 if current_turn == 'white' else 1
+
+        if dc == 0 and target == '.' and dr == move_dir:
             pass
-        elif delta_column == 0 and target == '.' and delta_row == 2 * direction:
-            if start_row != start_row_pawn:
+        elif dc == 0 and target == '.' and dr == 2 * move_dir:
+            if sr != (6 if current_turn == 'white' else 1) or board[sr+move_dir][sc] != '.':
                 return False
-            passing_row = start_row + direction
-            if board[passing_row][start_column] != '.':
-                return False
-            pass
-        elif abs(delta_column) == 1 and delta_row == direction and target != '.':
+        elif abs(dc) == 1 and dr == move_dir and target != '.':
             pass
         else:
             return False
         
-    if piece_type in ('r', 'b', 'q'):
-        step_row = 0 if delta_row == 0 else (1 if delta_row > 0 else -1)
-        step_column = 0 if delta_column == 0 else (1 if delta_column > 0 else -1)
-        current_row, current_column = start_row + step_row, start_column + step_column
-        while (current_row, current_column) != (end_row, end_column):
-            if board[current_row][current_column] != '.':
-                return False
-            current_row += step_row
-            current_column += step_column
-    
-    original_start = board[start_row][start_column]
-    original_end = board[end_row][end_column]
-    
-    board[end_row][end_column] = original_start
-    board[start_row][start_column] = '.'
-    
-    safe = not in_check(current_turn)
-    
-    board[start_row][start_column] = original_start
-    board[end_row][end_column] = original_end
+    if p_type in ('r', 'b', 'q'):
+        step_r, step_c = (0 if dr == 0 else (1 if dr > 0 else -1)), (0 if dc == 0 else (1 if dc > 0 else -1))
+        cr, cc = sr + step_r, sc + step_c
 
+        while (cr, cc) != (er, ec):
+            if board[cr][cc] != '.':
+                return False
+            
+            cr, cc = cr + step_r, cc + step_c
+
+    orig_s, orig_e = board[sr][sc], board[er][ec]
+    board[er][ec], board[sr][sc] = orig_s, '.'
+    safe = not in_check(current_turn)
+    board[sr][sc], board[er][ec] = orig_s, orig_e
     return safe
 
-def check_stalemate():
-    if in_check(current_turn):
-        return False
-    
-    for start_row in range(board_size):
-        for start_column in range(board_size):
-                piece = board[start_row][start_column]
+def get_all_valid_moves():
+    moves = []
+    for r in range(8):
+        for c in range(8):
+            for er in range(8):
+                for ec in range(8):
+                    if valid_move(r, c, er, ec): moves.append((r, c, er, ec))
+    if can_castle('short'):
+        moves.append('O-O')
+    if can_castle('long'):
+        moves.append('O-O-O')
+    return moves
 
-                if piece == '.':
-                    continue
-
-                if current_turn == 'white' and not piece.islower():
-                    continue
-                if current_turn == 'black' and not piece.isupper():
-                    continue
-    
-                for end_row in range(board_size):
-                    for end_column in range(board_size):
-                        if valid_move(start_row, start_column, end_row, end_column):
-                            return False
-    
+def is_checkmate(color):
+    if not in_check(color): return False
+    for r in range(8):
+        for c in range(8):
+            for er in range(8):
+                for ec in range(8):
+                    global current_turn
+                    prev = current_turn
+                    current_turn = color
+                    if valid_move(r, c, er, ec):
+                        current_turn = prev
+                        return False
+                    current_turn = prev
     return True
 
-def get_position():
-    board_state = tuple(tuple(row) for row in board)
-    return(board_state, current_turn)
+def is_insufficient_material():
+    p_list = [board[r][c] for r in range(8) for c in range(8) if board[r][c] != '.']
+    return len(p_list) <= 2
 
-def record_position():
-    key = get_position()
-    position_history[key] = position_history.get(key, 0) + 1
+def record_position(): position_history[get_position()] = position_history.get(get_position(), 0) + 1
+
+def get_position():
+    return (tuple(tuple(r) for r in board), current_turn)
 
 def check_repeat():
-    key = get_position()
-    return position_history.get(key, 0) >= 3
+    return position_history.get(get_position(), 0) >= 3
+
+def check_50_moves():
+    return halfmove_clock >= 100
+
+def update_clocks():
+    global last_update_time
+    
+    # Get the current system time in seconds
+    current_real_time = time.time()
+    
+    if last_update_time is None:
+        last_update_time = current_real_time
+        return
+
+    # calculate how many seconds have passed since the last update
+    elapsed = current_real_time - last_update_time
+    # update last_update_time to the current time for the next calculation
+    last_update_time = current_real_time
+    
+    # if the game is still running, subtract the elapsed time from 
+    # the current player's remaining time
+    if game_active:
+        player_times[current_turn] -= elapsed
+        # ensure the timer doesn't show negative numbers
+        if player_times[current_turn] < 0:
+            player_times[current_turn] = 0
+
+def format_time(seconds):
+    # convert total seconds into whole minutes
+    mins = int(seconds // 60)
+    # get the remaining seconds after minutes are removed
+    secs = int(seconds % 60)
+    # return a string padded with zeros (e.g., '05:09' instead of '5:9')
+    return f"{mins:02d}:{secs:02d}"
