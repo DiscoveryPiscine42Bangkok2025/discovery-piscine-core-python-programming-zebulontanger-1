@@ -1,6 +1,9 @@
 import chess_game
 import random
 
+# welcome to my unfinished project
+# what i'm trying to make here is a reinforced learning chess bot :)
+
 def train(num_games=2500):
     print(f"--- Starting Hybrid Training: {num_games} Games ---")
     chess_game.load_knowledge()
@@ -8,7 +11,6 @@ def train(num_games=2500):
     for i in range(num_games):
         game_history = []
         
-        # --- RESET BOARD ---
         chess_game.board = [
             ['♜','♞','♝','♛','♚','♝','♞','♜'], ['♟','♟','♟','♟','♟','♟','♟','♟'],
             ['.','.','.','.','.','.','.','.'], ['.','.','.','.','.','.','.','.'],
@@ -19,7 +21,6 @@ def train(num_games=2500):
         chess_game.move_history = []
         chess_game.moved_pieces = set()
         
-        # --- DETERMINE MODE FOR THIS GAME ---
         # 70% Balanced (Random Opponent), 30% Self-Play (Bot vs Bot)
         is_self_play = random.random() < 0.3
         bot_is_white = random.choice([True, False])
@@ -33,18 +34,15 @@ def train(num_games=2500):
                 chess_game.update_learning(game_history, res)
                 break
             
-            # --- MOVE SELECTION ---
             is_bot_acting = False
             if is_self_play:
                 is_bot_acting = True # Both sides are smart
             else:
-                # Only one side is smart
                 is_bot_acting = (chess_game.current_turn == 'white' and bot_is_white) or \
                                 (chess_game.current_turn == 'black' and not bot_is_white)
 
-            if is_bot_acting:
-                # Use learning + Minimax
-                # Increased exploration to 0.4 to discover more of the 60k+ new states
+            if is_bot_acting
+                # exploration rate: 0.4
                 if random.random() < 0.4:
                     move = random.choice(moves)
                 else:
@@ -60,7 +58,7 @@ def train(num_games=2500):
             else:
                 break
 
-        # Progress Updates
+        # progress updating
         if (i + 1) % 50 == 0:
             mode_text = "Self-Play" if is_self_play else "Balanced"
             print(f"Game {i+1}/{num_games} completed ({mode_text}). Positions known: {len(chess_game.learned_values)}")
@@ -71,5 +69,5 @@ def train(num_games=2500):
     print(f"Training Complete! Total unique positions: {len(chess_game.learned_values)}")
 
 if __name__ == "__main__":
-    # You can change this number to run smaller or larger batches
+    # amount of times to run
     train(2500)
