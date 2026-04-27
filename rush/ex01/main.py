@@ -2,7 +2,6 @@
 import chess_game
 
 def parse_coordinate(coord):
-    """Converts notation like 'e2' to (row, col) indices like (6, 4)"""
     if len(coord) != 2:
         return None
     col_char = coord[0].lower()
@@ -11,13 +10,16 @@ def parse_coordinate(coord):
     if not ('a' <= col_char <= 'h') or not ('1' <= row_char <= '8'):
         return None
         
-    col = ord(col_char) - ord('a')
+    column = ord(col_char) - ord('a')
     row = 8 - int(row_char)
-    return row, col
+    return row, column
 
 def main():
     chess_game.show_rules()
-    
+    chess_game.record_position()
+
+
+
     while True:
         chess_game.show_board()
         if chess_game.in_check(chess_game.current_turn):
@@ -50,10 +52,21 @@ def main():
 
                 if chess_game.check_stalemate():
                     chess_game.show_board()
-                    print("Game over: Stalemate.")
+                    print("Draw: Stalemate.")
                     break
 
+                chess_game.record_position()
+
+                if chess_game.check_repeat():
+                    print("Draw: Threefold Repetition")
+
+                # if chess_game.check_for_repeating():
+                #     chess_game.show_board()
+                #     print("Game Over: Repetitive Moves")
+                #     break
+
                 chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
+
             else:
                 print("\n[!] Invalid Move")
         except ValueError:
