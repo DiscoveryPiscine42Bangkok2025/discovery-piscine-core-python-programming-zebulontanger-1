@@ -18,8 +18,6 @@ def main():
     chess_game.show_rules()
     chess_game.record_position()
 
-
-
     while True:
         chess_game.show_board()
         if chess_game.in_check(chess_game.current_turn):
@@ -41,19 +39,16 @@ def main():
             sr, sc = start_coords
             er, ec = end_coords
 
-        
             if chess_game.valid_move(sr, sc, er, ec):
                 chess_game.board[er][ec] = chess_game.board[sr][sc]
                 chess_game.board[sr][sc] = '.'
 
-                if chess_game.board[er][ec].lower() == 'p' and (er == 0 or er == chess_game.board_size - 1):
-                    choice = input("Promote to a rook (r) or Bishop (b)? ").lower()
-                    if choice not in ['r', 'b']:
-                        choice = 'r'
-        
-                chess_game.board[er][ec] = choice if chess_game.current_turn == 'white' else choice.upper()
-
-                chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
+                if chess_game.board[er][ec].lower() == 'p' and (er == 0 or er == 7):
+                    choice = input("Promote to a queen (q), rook (r), knight (n), or bishop (b)? ").lower()
+                    if choice not in ['q', 'r', 'n', 'b']:
+                        choice = 'q'
+                    
+                    chess_game.board[er][ec] = choice.upper() if chess_game.current_turn == 'white' else choice.lower()
 
                 chess_game.record_position()
 
@@ -66,9 +61,8 @@ def main():
                     chess_game.show_board()
                     print("Draw: Stalemate.")
                     break
-
+                
                 chess_game.current_turn = 'black' if chess_game.current_turn == 'white' else 'white'
-
             else:
                 print("\n[!] Invalid Move")
         except ValueError:
