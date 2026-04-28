@@ -1,7 +1,7 @@
 import random
 import pickle
 
-# --- SETTINGS ---
+# settings
 LEARNING_RATE = 0.1
 DISCOUNT_FACTOR = 0.95
 WHITE_PIECES = {'♙', '♖', '♘', '♗', '♕', '♔'}
@@ -11,8 +11,7 @@ PIECE_VALUES = {
     '♟': -1, '♞': -3, '♝': -3, '♜': -5, '♛': -9, '♚': -100
 }
 
-# --- POSITIONAL TABLES (White's perspective; flip row for Black) ---
-# Encourage center control, piece development, good outposts
+# encourage center csontrol, piece development, good outposts
 PAWN_TABLE = [
     [0,  0,  0,  0,  0,  0,  0,  0],
     [0.5,0.5,0.5,0.5,0.5,0.5,0.5,0.5],
@@ -63,7 +62,8 @@ QUEEN_TABLE = [
     [-0.1, 0,   0.05,0,    0,    0,   0,  -0.1],
     [-0.2,-0.1,-0.1,-0.05,-0.05,-0.1,-0.1,-0.2]
 ]
-# King safety: stay protected in opening/mid, centralize in endgame
+
+# king safetys
 KING_TABLE_MID = [
     [-0.3,-0.4,-0.4,-0.5,-0.5,-0.4,-0.4,-0.3],
     [-0.3,-0.4,-0.4,-0.5,-0.5,-0.4,-0.4,-0.3],
@@ -186,7 +186,7 @@ def get_positional_score(board):
     score = 0.0
     endgame = is_endgame(board)
 
-    # Collect pawn file info for structure analysis
+    # pawn file structures
     white_pawn_files = []
     black_pawn_files = []
 
@@ -199,10 +199,7 @@ def get_positional_score(board):
             val = PIECE_VALUES.get(p, 0)
             score += val
 
-            # --- 2. Piece-Square Tables ---
             is_white_p = p in WHITE_PIECES
-            # For white, row 0 is far side; table row 0 = row 0 of board
-            # For black, flip the row
             tr = r if is_white_p else (7 - r)
             sign = 1 if is_white_p else -1
 
@@ -222,8 +219,8 @@ def get_positional_score(board):
                 king_table = KING_TABLE_END if endgame else KING_TABLE_MID
                 score += sign * king_table[tr][c]
 
-    # --- 5. Pawn structure penalties ---
-    # Doubled pawns
+    # pawn structure penalties
+    # doubled pawns
     for f in set(white_pawn_files):
         if white_pawn_files.count(f) > 1:
             score -= 0.3 * (white_pawn_files.count(f) - 1)
@@ -231,7 +228,7 @@ def get_positional_score(board):
         if black_pawn_files.count(f) > 1:
             score += 0.3 * (black_pawn_files.count(f) - 1)
 
-    # Isolated pawns (no friendly pawn on adjacent files)
+    # isolated pawns (no friendly pawn on adjacent files)
     for f in set(white_pawn_files):
         if not any(af in white_pawn_files for af in [f-1, f+1]):
             score -= 0.2
@@ -239,7 +236,7 @@ def get_positional_score(board):
         if not any(af in black_pawn_files for af in [f-1, f+1]):
             score += 0.2
 
-    # --- 6. Rook open file bonus ---
+    # rook openfile bonus
     for c in range(8):
         col_pieces = [board[r][c] for r in range(8) if board[r][c] != '.']
         has_white_pawn = '♙' in col_pieces
@@ -250,16 +247,15 @@ def get_positional_score(board):
                 if not has_white_pawn and not has_black_pawn:
                     score += 0.3   # fully open file
                 elif not has_white_pawn:
-                    score += 0.15  # semi-open file
+                    score += 0.15  # semi open file
             elif p == '♜':
                 if not has_white_pawn and not has_black_pawn:
                     score -= 0.3
                 elif not has_black_pawn:
                     score -= 0.15
 
-    # --- 7. Hanging piece penalty ---
-    # A piece is "hanging" if it can be captured and is not defended
-    # Quick approximation: penalise pieces that can be immediately captured
+    # hanging piece penalty
+
     for r in range(8):
         for c in range(8):
             p = board[r][c]
@@ -267,15 +263,15 @@ def get_positional_score(board):
             is_white_p = p in WHITE_PIECES
             attacker_color = 'black' if is_white_p else 'white'
             attacker_pieces = BLACK_PIECES if is_white_p else WHITE_PIECES
-            # Check if any enemy can capture this square
+            # check if any enemy can capture this square
             for ar in range(8):
                 for ac in range(8):
                     ap = board[ar][ac]
                     if ap not in attacker_pieces: continue
-                    # Can ap capture (r,c)?
+                    # can ap capture (r,c)?
                     if _can_attack(board, ar, ac, r, c):
                         pv = abs(PIECE_VALUES.get(p, 0))
-                        # Penalty scaled by piece value; small for pawns
+                        # penalty scaled by piece value
                         penalty = pv * 0.05
                         score += penalty if not is_white_p else -penalty
                         break  # count each piece as hanging once
@@ -284,6 +280,7 @@ def get_positional_score(board):
 
 
 def _can_attack(board, fr, fc, tr, tc):
+
     """Quick check: can piece at (fr,fc) capture square (tr,tc)?"""
     p = board[fr][fc]
     if p == '.': return False
@@ -337,7 +334,7 @@ def select_move(board, turn, epsilon):
     if random.random() < epsilon:
         return random.choice(moves)
 
-    # --- 3 & 8. Candidate Move Ordering: checks/captures first ---
+    # move order: check, captures, etc.
     def move_priority(m):
         sr, sc, er, ec = m
         dest = board[er][ec]
@@ -410,4 +407,4 @@ def run_self_play_training(games=100):
     save_brain()
 
 if __name__ == "__main__":
-    run_self_play_training(10000)
+    run_self_play_training(2000)
