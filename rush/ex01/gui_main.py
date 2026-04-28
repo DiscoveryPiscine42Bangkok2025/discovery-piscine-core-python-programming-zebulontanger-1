@@ -5,7 +5,6 @@ import sys
 import threading
 import time
 
-# ── Piece sets ───────────────────────────────────────────────────────────────
 WHITE_PIECES = {'♙', '♖', '♘', '♗', '♕', '♔'}
 BLACK_PIECES = {'♟', '♜', '♞', '♝', '♛', '♚'}
 PIECE_VALUES = {
@@ -15,7 +14,6 @@ PIECE_VALUES = {
 
 INF = 10_000_000
 
-# ── Piece-square tables (White perspective; flip row index for Black) ─────────
 PAWN_TABLE = [
     [  0,  0,  0,  0,  0,  0,  0,  0],
     [ 50, 50, 50, 50, 50, 50, 50, 50],
@@ -94,7 +92,6 @@ PST = {
     '♕': QUEEN_TABLE,  '♛': QUEEN_TABLE,
 }
 
-# ── Global game state ─────────────────────────────────────────────────────────
 board = [
     ['♜','♞','♝','♛','♚','♝','♞','♜'],
     ['♟','♟','♟','♟','♟','♟','♟','♟'],
@@ -114,18 +111,13 @@ en_passant_target = None
 current_turn = 'white'
 learned_values = {}
 
-# Transposition table: key -> (depth, flag, score, best_move)
+# depth, flag, score, best_move
 tt = {}
 TT_MAX = 2_000_000
 
 # Threading
 bot_thinking = False
 bot_result_move = None
-
-
-# ═══════════════════════════════════════════
-# HELPERS
-# ═══════════════════════════════════════════
 
 def is_white_piece(p): return p in WHITE_PIECES
 def is_black_piece(p): return p in BLACK_PIECES
@@ -145,11 +137,6 @@ def board_key():
 def _is_endgame():
     pieces = [p for row in board for p in row if p != '.']
     return sum(1 for p in pieces if p in {'♕','♛'}) == 0 or len(pieces) <= 12
-
-
-# ═══════════════════════════════════════════
-# MOVE GENERATION
-# ═══════════════════════════════════════════
 
 def get_piece_pseudo_moves(r, c, ignore_ep=False):
     p = board[r][c]
@@ -247,11 +234,6 @@ def get_all_valid_moves(color):
             valid.append((0,4,0,2))
     return valid
 
-
-# ═══════════════════════════════════════════
-# APPLY / UNDO  (for search — reversible)
-# ═══════════════════════════════════════════
-
 def apply_move(sr, sc, er, ec):
     global en_passant_target
     piece    = board[sr][sc]
@@ -309,11 +291,6 @@ def undo_move(bundle):
         board[orig_pos[0]][orig_pos[1]] = board[moved_pos[0]][moved_pos[1]]
         board[moved_pos[0]][moved_pos[1]] = '.'
 
-
-# ═══════════════════════════════════════════
-# STATIC EVALUATION
-# ═══════════════════════════════════════════
-
 def static_eval():
     score = 0
     endgame = _is_endgame()
@@ -336,7 +313,7 @@ def static_eval():
             if p == '♙': wpf.append(c)
             elif p == '♟': bpf.append(c)
 
-    # Pawn structure
+    # pawn structure
     for f in set(wpf):
         if wpf.count(f) > 1:  score -= 30 * (wpf.count(f)-1)
         if not any(af in wpf for af in [f-1,f+1]): score -= 20
@@ -344,7 +321,7 @@ def static_eval():
         if bpf.count(f) > 1:  score += 30 * (bpf.count(f)-1)
         if not any(af in bpf for af in [f-1,f+1]): score += 20
 
-    # Rook open files
+    # rook open files
     for c in range(8):
         col = [board[r][c] for r in range(8) if board[r][c]!='.']
         hwp='♙' in col; hbp='♟' in col
@@ -353,14 +330,9 @@ def static_eval():
             if p=='♖':   score += 30 if not hwp and not hbp else (15 if not hwp else 0)
             elif p=='♜': score -= 30 if not hwp and not hbp else (15 if not hbp else 0)
 
-    # RL learned knowledge blended in (scaled to centipawns)
+    # blend RL knowledge
     score += int(learned_values.get(board_key(), 0) * 100)
     return score
-
-
-# ═══════════════════════════════════════════
-# MOVE ORDERING
-# ═══════════════════════════════════════════
 
 def order_moves(moves, tt_move=None):
     def priority(m):
@@ -381,17 +353,7 @@ def order_moves(moves, tt_move=None):
     moves.sort(key=priority, reverse=True)
     return moves
 
-
-# ═══════════════════════════════════════════
-# ALPHA-BETA  (negamax + TT)
-# ═══════════════════════════════════════════
-
 def negamax(depth, alpha, beta, color):
-    """
-    Negamax alpha-beta with transposition table.
-    color: +1 = White to move, -1 = Black to move.
-    Returns score from the perspective of the side to move.
-    """
     orig_alpha = alpha
     key = board_key()
 
@@ -412,7 +374,7 @@ def negamax(depth, alpha, beta, color):
         enemy_color = 'black' if color == 1 else 'white'
         kp = next(((r,c) for r in range(8) for c in range(8) if board[r][c]==king_sym), None)
         if kp and is_square_attacked(kp[0], kp[1], enemy_color):
-            return -INF + (100 - depth)  # checkmate; prefer quicker mates
+            return -INF + (100 - depth)  # checkmate: prefer quicker mates
         return 0  # stalemate
 
     if depth == 0:
@@ -436,7 +398,6 @@ def negamax(depth, alpha, beta, color):
         if alpha >= beta:
             break  # β cutoff
 
-    # TT store
     if len(tt) < TT_MAX:
         flag = ('exact'  if orig_alpha < best_score < beta else
                 'lower'  if best_score >= beta else
@@ -445,9 +406,10 @@ def negamax(depth, alpha, beta, color):
 
     return best_score
 
-
-def find_best_move(max_depth=8, time_limit=12.0):
-    """Iterative deepening: search depth 1→max_depth, stop on time limit."""
+#=================
+# TIME LIMIT HERE
+#==================
+def find_best_move(max_depth=8, time_limit=24.0):
     best_move = None
     start = time.time()
 
@@ -484,9 +446,6 @@ def find_best_move(max_depth=8, time_limit=12.0):
     return best_move
 
 
-# ═══════════════════════════════════════════
-# EXECUTE MOVE  (real game, with GUI state)
-# ═══════════════════════════════════════════
 
 def execute_move(sr, sc, er, ec):
     global en_passant_target
@@ -519,11 +478,6 @@ def execute_move(sr, sc, er, ec):
     if piece=='♙' and er==0: board[er][ec]='♕'
     if piece=='♟' and er==7: board[er][ec]='♛'
 
-
-# ═══════════════════════════════════════════
-# BOT THREAD
-# ═══════════════════════════════════════════
-
 def bot_think_thread():
     global bot_thinking, bot_result_move
     bot_thinking = True
@@ -532,11 +486,6 @@ def bot_think_thread():
     bot_result_move = move
     bot_thinking = False
     print(f"[Bot] Chose {move}")
-
-
-# ═══════════════════════════════════════════
-# GUI
-# ═══════════════════════════════════════════
 
 pygame.init()
 load_knowledge()
@@ -577,16 +526,14 @@ def main():
     while True:
         CLK.tick(30)
 
-        # Start bot thread once on White's turn
         if current_turn=='white' and not bot_thinking and not bot_started and bot_result_move is None:
             t = threading.Thread(target=bot_think_thread, daemon=True)
             t.start()
             bot_started = True
 
-        # Collect finished bot move
         if current_turn=='white' and not bot_thinking and bot_result_move is not None:
             execute_move(*bot_result_move)
-            tt.clear()          # position changed; flush TT
+            tt.clear()
             bot_result_move = None
             bot_started     = False
             current_turn    = 'black'
